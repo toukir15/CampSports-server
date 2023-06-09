@@ -49,11 +49,20 @@ async function run() {
             })
         })
 
-        // payment related api 
+        // payment related api
+
+        app.get('/payments', async (req, res) => {
+            const result = await paymentsCollection.find().toArray()
+            res.send(result)
+        })
+
         app.post("/payments", async (req, res) => {
             const payment = req.body;
-            const result = await paymentsCollection.insertOne(payment);
-            res.send(result)
+            console.log(payment);
+            const insertResult = await paymentsCollection.insertOne(payment);
+            const query = { _id: { $in: payment.selected_courses_id.map(id => new ObjectId(id)) } }
+            const deletedResult = await coursesCollection.deleteMany(query)
+            res.send({ insertResult, deletedResult })
         })
 
         // classes api
