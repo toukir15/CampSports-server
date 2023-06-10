@@ -150,6 +150,28 @@ async function run() {
             res.send(result)
         })
 
+        app.patch("/courses/:id", async (req, res) => {
+            const id = req.params.id
+            console.log(id);
+            const query = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    status: "approved"
+                },
+            };
+            const result = await coursesCollection.updateOne(query, updateDoc);
+            res.send(result)
+
+        })
+
+        app.delete("/courses/:id", async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await coursesCollection.deleteOne(query);
+            res.send(result)
+
+        })
+
 
 
         // select course api
