@@ -74,12 +74,12 @@ async function run() {
         })
 
         app.post("/payments", async (req, res) => {
+
             const payment = req.body;
             console.log(payment.courses_id);
             const insertResult = await paymentsCollection.insertOne(payment);
             const query = { _id: { $in: payment.selected_courses_id.map(id => new ObjectId(id)) } }
             const deletedResult = await selectCoursesCollection.deleteMany(query)
-
 
             await payment.courses_id.map(async (singleId) => {
                 const { available_seat } = await coursesCollection.findOne({ course_id: singleId })
@@ -91,15 +91,62 @@ async function run() {
                 const newData = await coursesCollection.updateOne({ course_id: singleId }, updateDoc)
                 console.log(newData);
             })
-
-
-
             res.send({ insertResult, deletedResult })
         })
+        app.post("/payments", async (req, res) => {
+            try {
+                const payment = req.body;
+                console.log(payment.courses_id);
+                const insertResult = await paymentsCollection.insertOne(payment);
+                const query = { _id: { $in: payment.selected_courses_id.map(id => new ObjectId(id)) } }
+                const deletedResult = await selectCoursesCollection.deleteMany(query)
 
-        // courses api 
+                const updateOperations = payment.courses_id.map(async (singleId) => {
+                    const { available_seat } = await coursesCollection.findOne({ course_id: singleId })
+                    const updateDoc = {
+                        $set: {
+                            available_seat: available_seat - 1
+                        },
+                    };
+                    return coursesCollection.updateOne({ course_id: singleId }, updateDoc);
+                });
+
+                await Promise.all(updateOperations);
+
+                res.send({ insertResult, deletedResult });
+            } catch (error) {
+                res.status(500).send({ error: error.message });
+            }
+        });
+
+
+
+        // courses api     
+
         app.get('/courses', async (req, res) => {
+            const { email } = req.query;
+            if (email) {
+                const query = { instructor_email: email }
+                const result = await coursesCollection.find(query).toArray()
+                res.send(result)
+                return
+            }
             const result = await coursesCollection.find().toArray()
+            res.send(result)
+        })
+
+        app.get('/course/:status', async (req, res) => {
+            const status = req.params.status;
+            // console.log(status);
+            const query = { status: status }
+            console.log(query);
+            const result = await coursesCollection.find(query).toArray()
+            res.send(result)
+        })
+
+        app.post('/courses', async (req, res) => {
+            const course = req.body;
+            const result = await coursesCollection.insertOne(course)
             res.send(result)
         })
 
