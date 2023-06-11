@@ -23,6 +23,21 @@ const client = new MongoClient(uri, {
     }
 });
 
+const verifyJWT = (req, res, next) => {
+    const authorization = req.headers.authorization;
+    if (!authorization) {
+        return res.status(401).send({ error: true, message: "unauthorized access" })
+    }
+    const token = authorization.split(" ")[1]
+    jwt.verify(token, process.env.VITE_access_secret, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ error: true, message: "unauthorized access" })
+        }
+        req.decoded = decoded
+        next()
+    })
+}
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -62,9 +77,29 @@ async function run() {
         })
 
         // users apis
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyJWT, async (req, res) => {
             const result = await usersCollection.find().toArray()
             res.send(result)
+        })
+
+        app.get('/user/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email }
+            const user = await usersCollection.findOne(query)
+            if (user?.role !== "Admin") {
+                return res.send({ isAdmin: false })
+            }
+            res.send(user)
+        })
+
+        app.get('/user/instructor/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email }
+            const user = await usersCollection.findOne(query)
+            if (user?.role !== "Instructor") {
+                return res.send({ isInstructor: false })
+            }
+            res.send(user)
         })
 
         app.post('/users', async (req, res) => {
