@@ -1,7 +1,7 @@
 const express = require('express')
 const app = express()
 const cors = require('cors');
-// const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const stripe = require("stripe")('sk_test_51NEr7SA8JnQBN0GYbSzWwXzyIXCNjEhBKl83Pg6d9gSLXopFJ2lBwe3zss7x8fPcFwfFl6xvbsySlqXej9JUv3Rp0096Ia2VyH');
 require('dotenv').config()
 const port = process.env.PORT || 5000;
@@ -31,6 +31,13 @@ async function run() {
         const coursesCollection = client.db("summer-camp").collection("courses");
         const paymentsCollection = client.db("summer-camp").collection("payments");
         const usersCollection = client.db("summer-camp").collection("users");
+
+        // jwt
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.VITE_access_secret, { expiresIn: "1h" })
+            res.send({ token })
+        })
 
         // create payment intent 
         app.post('/create-payment-intent', async (req, res) => {
@@ -91,8 +98,8 @@ async function run() {
             }
 
         })
-        // payment related api
 
+        // payment related api
         app.get('/payments', async (req, res) => {
             const result = await paymentsCollection.find().toArray()
             res.send(result)
