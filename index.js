@@ -66,6 +66,31 @@ async function run() {
             res.send(result)
         })
 
+        app.patch("/users/:id", async (req, res) => {
+            const role = req.body
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            if (role.role === "make admin") {
+                const updateDoc = {
+                    $set: {
+                        role: "Admin"
+                    },
+                };
+                const result = await usersCollection.updateOne(query, updateDoc)
+                res.send(result)
+                return
+            }
+            else {
+                const updateDoc = {
+                    $set: {
+                        role: "Instructor"
+                    },
+                };
+                const result = await usersCollection.updateOne(query, updateDoc)
+                res.send(result)
+            }
+
+        })
         // payment related api
 
         app.get('/payments', async (req, res) => {
@@ -74,25 +99,30 @@ async function run() {
         })
 
         app.post("/payments", async (req, res) => {
-
             const payment = req.body;
-            console.log(payment.courses_id);
+            // console.log(payment.selected_courses_id);
             const insertResult = await paymentsCollection.insertOne(payment);
-            const query = { _id: { $in: payment.selected_courses_id.map(id => new ObjectId(id)) } }
+
+            const query = { course_id: { $in: payment.selected_courses_id.map(id => id) } }
+            console.log(query);
             const deletedResult = await selectCoursesCollection.deleteMany(query)
 
-            await payment.courses_id.map(async (singleId) => {
-                const { available_seat } = await coursesCollection.findOne({ course_id: singleId })
+            await payment.selected_courses_id.map(async (singleId) => {
+                console.log(singleId);
+                const { available_seats, enrolled_students } = await coursesCollection.findOne({ _id: new ObjectId(singleId) })
                 const updateDoc = {
                     $set: {
-                        available_seat: available_seat - 1
+                        available_seats: available_seats - 1,
+                        enrolled_students: enrolled_students + 1
                     },
                 };
-                const newData = await coursesCollection.updateOne({ course_id: singleId }, updateDoc)
+                const newData = await coursesCollection.updateOne({ _id: new ObjectId(singleId) }, updateDoc)
                 console.log(newData);
             })
             res.send({ insertResult, deletedResult })
         })
+
+
         app.post("/payments", async (req, res) => {
             try {
                 const payment = req.body;
@@ -164,6 +194,20 @@ async function run() {
 
         })
 
+        // app.patch("/courses/status/:id", async (req, res) => {
+        //     const id = req.params.id
+        //     console.log(id);
+        //     const query = { _id: new ObjectId(id) }
+        //     const updateDoc = {
+        //         $set: {
+        //             status: "denied"
+        //         },
+        //     };
+        //     const result = await coursesCollection.updateOne(query, updateDoc);
+        //     res.send(result)
+
+        // })
+
         app.delete("/courses/:id", async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) }
@@ -189,9 +233,7 @@ async function run() {
 
         app.delete("/selectCourses/:id", async (req, res) => {
             const id = req.params.id;
-            // console.log(id);
             const query = { _id: new ObjectId(id) }
-            // console.log(query);
             const result = await selectCoursesCollection.deleteOne(query)
 
             res.send(result)
