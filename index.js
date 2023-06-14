@@ -146,23 +146,7 @@ async function run() {
         // payment api
 
 
-        // this data for enrolled students
-        // app.get('/payments', async (req, res) => {
-        //     let finalData = [];
-        //     const paymentData = await paymentsCollection.find().toArray();
-        //     paymentData.map(data => {
-        //         finalData = [...finalData, ...data.selected_courses_id];
-        //     });
 
-        //     const courseData = await coursesCollection.find({
-        //         _id: {
-        //             $in: new ObjectId(finalData[0])
-        //         }
-        //     }).toArray();
-
-        //     res.send(finalData);
-        // });
-        //
 
         app.post('/payments', async (req, res) => {
             const selectedId = req.body
