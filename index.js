@@ -44,6 +44,7 @@ async function run() {
         await client.connect();
         const selectCoursesCollection = client.db("summer-camp").collection("selectCourses");
         const coursesCollection = client.db("summer-camp").collection("courses");
+        const instructorsCollection = client.db("summer-camp").collection("instructors");
         const paymentsCollection = client.db("summer-camp").collection("payments");
         const paymentsHistoryCollection = client.db("summer-camp").collection("paymentsHistory");
         const usersCollection = client.db("summer-camp").collection("users");
@@ -143,25 +144,31 @@ async function run() {
 
         })
 
+        // instructors api 
+        app.get('/instructors', async (req, res) => {
+            const result = await instructorsCollection.find().toArray()
+            res.send(result)
+        })
+
         // payment api
 
 
         // this data for enrolled students
-        app.get('/payments', async (req, res) => {
-            let finalData = [];
-            const paymentData = await paymentsCollection.find().toArray();
-            paymentData.map(data => {
-                finalData = [...finalData, ...data.selected_courses_id];
-            });
+        // app.get('/payments', async (req, res) => {
+        //     let finalData = [];
+        //     const paymentData = await paymentsCollection.find().toArray();
+        //     paymentData.map(data => {
+        //         finalData = [...finalData, ...data.selected_courses_id];
+        //     });
 
-            const courseData = await coursesCollection.find({
-                _id: {
-                    $in: new ObjectId(finalData[0])
-                }
-            }).toArray();
+        //     const courseData = await coursesCollection.find({
+        //         _id: {
+        //             $in: new ObjectId(finalData[0])
+        //         }
+        //     }).toArray();
 
-            res.send(finalData);
-        });
+        //     res.send(finalData);
+        // });
 
 
         app.post('/payments', async (req, res) => {
