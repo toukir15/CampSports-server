@@ -12,7 +12,7 @@ app.use(express.json());
 
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const uri = "mongodb+srv://summer-camp:admin123@cluster0.dgqtjig.mongodb.net/?retryWrites=true&w=majority";
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dgqtjig.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -45,6 +45,7 @@ async function run() {
         const selectCoursesCollection = client.db("summer-camp").collection("selectCourses");
         const coursesCollection = client.db("summer-camp").collection("courses");
         const paymentsCollection = client.db("summer-camp").collection("payments");
+        const paymentsHistoryCollection = client.db("summer-camp").collection("paymentsHistory");
         const usersCollection = client.db("summer-camp").collection("users");
 
         // jwt
@@ -59,7 +60,6 @@ async function run() {
             try {
                 const { price } = req.body || {}
                 const amount = Math.round(price * 100);
-                // console.log(price, amount);
                 const paymentIntent = await stripe.paymentIntents.create({
                     amount: amount,
                     currency: 'usd',
@@ -82,7 +82,16 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/user/admin/:email', async (req, res) => {
+        app.get('/user/student/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email }
+            const user = await usersCollection.findOne(query)
+            if (user?.role !== "User") {
+                return res.send({ isStudent: false })
+            }
+            res.send(user)
+        })
+        app.get('/user/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const query = { email: email }
             const user = await usersCollection.findOne(query)
@@ -92,7 +101,7 @@ async function run() {
             res.send(user)
         })
 
-        app.get('/user/instructor/:email', async (req, res) => {
+        app.get('/user/instructor/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const query = { email: email }
             const user = await usersCollection.findOne(query)
@@ -134,23 +143,46 @@ async function run() {
 
         })
 
-        // payment related api
-        app.get('/payments', async (req, res) => {
-            const result = await paymentsCollection.find().toArray()
+        // payment api
+
+
+        // this data for enrolled students
+        // app.get('/payments', async (req, res) => {
+        //     let finalData = [];
+        //     const paymentData = await paymentsCollection.find().toArray();
+        //     paymentData.map(data => {
+        //         finalData = [...finalData, ...data.selected_courses_id];
+        //     });
+
+        //     const courseData = await coursesCollection.find({
+        //         _id: {
+        //             $in: new ObjectId(finalData[0])
+        //         }
+        //     }).toArray();
+
+        //     res.send(finalData);
+        // });
+        //
+
+        app.post('/payments', async (req, res) => {
+            const selectedId = req.body
+            const result = await paymentsCollection.insertOne(selectedId)
             res.send(result)
         })
 
-        app.post("/payments", async (req, res) => {
-            const payment = req.body;
-            // console.log(payment.selected_courses_id);
-            const insertResult = await paymentsCollection.insertOne(payment);
+        app.get('/paymentsHistory', async (req, res) => {
+            const result = await paymentsHistoryCollection.find().toArray();
+            result.sort((a, b) => new Date(b.date) - new Date(a.date));
+            res.send(result);
+        });
 
-            const query = { course_id: { $in: payment.selected_courses_id.map(id => id) } }
-            console.log(query);
+        app.post("/paymentsHistory", async (req, res) => {
+            const paymentHistory = req.body;
+            const insertResult = await paymentsHistoryCollection.insertOne(paymentHistory);
+            const query = { course_id: { $in: paymentHistory.selected_courses_id.map(id => id) } }
             const deletedResult = await selectCoursesCollection.deleteMany(query)
 
-            await payment.selected_courses_id.map(async (singleId) => {
-                console.log(singleId);
+            await paymentHistory.selected_courses_id.map(async (singleId) => {
                 const { available_seats, enrolled_students } = await coursesCollection.findOne({ _id: new ObjectId(singleId) })
                 const updateDoc = {
                     $set: {
@@ -159,17 +191,14 @@ async function run() {
                     },
                 };
                 const newData = await coursesCollection.updateOne({ _id: new ObjectId(singleId) }, updateDoc)
-                console.log(newData);
             })
             res.send({ insertResult, deletedResult })
         })
 
-
         app.post("/payments", async (req, res) => {
             try {
                 const payment = req.body;
-                console.log(payment.courses_id);
-                const insertResult = await paymentsCollection.insertOne(payment);
+                const insertResult = await paymentsHistoryCollection.insertOne(payment);
                 const query = { _id: { $in: payment.selected_courses_id.map(id => new ObjectId(id)) } }
                 const deletedResult = await selectCoursesCollection.deleteMany(query)
 
@@ -191,10 +220,7 @@ async function run() {
             }
         });
 
-
-
         // courses api     
-
         app.get('/courses', async (req, res) => {
             const { email } = req.query;
             if (email) {
@@ -203,15 +229,13 @@ async function run() {
                 res.send(result)
                 return
             }
-            const result = await coursesCollection.find().toArray()
+            const result = await coursesCollection.find().sort({ enrolled_students: -1 }).toArray()
             res.send(result)
         })
 
         app.get('/course/:status', async (req, res) => {
             const status = req.params.status;
-            // console.log(status);
             const query = { status: status }
-            console.log(query);
             const result = await coursesCollection.find(query).toArray()
             res.send(result)
         })
@@ -224,7 +248,6 @@ async function run() {
 
         app.patch("/courses/:id", async (req, res) => {
             const id = req.params.id
-            console.log(id);
             const query = { _id: new ObjectId(id) }
             const updateDoc = {
                 $set: {
@@ -236,20 +259,6 @@ async function run() {
 
         })
 
-        // app.patch("/courses/status/:id", async (req, res) => {
-        //     const id = req.params.id
-        //     console.log(id);
-        //     const query = { _id: new ObjectId(id) }
-        //     const updateDoc = {
-        //         $set: {
-        //             status: "denied"
-        //         },
-        //     };
-        //     const result = await coursesCollection.updateOne(query, updateDoc);
-        //     res.send(result)
-
-        // })
-
         app.delete("/courses/:id", async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) }
@@ -257,8 +266,6 @@ async function run() {
             res.send(result)
 
         })
-
-
 
         // select course api
         app.get('/selectCourses', async (req, res) => {
