@@ -41,7 +41,7 @@ const verifyJWT = (req, res, next) => {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        client.connect();
         const selectCoursesCollection = client.db("summer-camp").collection("selectCourses");
         const coursesCollection = client.db("summer-camp").collection("courses");
         const instructorsCollection = client.db("summer-camp").collection("instructors");
