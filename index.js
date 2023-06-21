@@ -111,12 +111,19 @@ async function run() {
             }
             res.send(user)
         })
-
         app.post('/users', async (req, res) => {
             const user = req.body;
+
+            const query = { email: user.email }
+            const findUser = await usersCollection.findOne(query);
+
+            if (user?.email === findUser?.email) {
+                return
+            }
             const result = await usersCollection.insertOne(user)
             res.send(result)
         })
+
 
         app.patch("/users/:id", async (req, res) => {
             const role = req.body
@@ -205,6 +212,7 @@ async function run() {
         app.post("/payments", async (req, res) => {
             try {
                 const payment = req.body;
+                console.log(payment);
                 const insertResult = await paymentsHistoryCollection.insertOne(payment);
                 const query = { _id: { $in: payment.selected_courses_id.map(id => new ObjectId(id)) } }
                 const deletedResult = await selectCoursesCollection.deleteMany(query)
@@ -264,6 +272,19 @@ async function run() {
             const result = await coursesCollection.updateOne(query, updateDoc);
             res.send(result)
 
+        })
+
+        app.patch("/courses/feedback/:id", async (req, res) => {
+            const id = req.params.id;
+            const feedbackData = req.body
+            const query = { _id: new ObjectId(id) }
+            const updateDoc = {
+                $set: {
+                    feedback: feedbackData.feedback
+                },
+            };
+            const result = await coursesCollection.updateOne(query, updateDoc)
+            res.send(result)
         })
 
         app.delete("/courses/:id", async (req, res) => {
