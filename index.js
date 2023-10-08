@@ -48,6 +48,7 @@ async function run() {
         const paymentsCollection = client.db("summer-camp").collection("payments");
         const paymentsHistoryCollection = client.db("summer-camp").collection("paymentsHistory");
         const usersCollection = client.db("summer-camp").collection("users");
+        const testimonialsCollection = client.db("summer-camp").collection("testimonials");
 
         // jwt
         app.post('/jwt', (req, res) => {
@@ -315,6 +316,12 @@ async function run() {
 
             res.send(result)
 
+        })
+
+        // testimonials
+        app.get("/testimonials", async (req, res) => {
+            const result = await testimonialsCollection.find().toArray()
+            res.send(result)
         })
 
         // Send a ping to confirm a successful connection
